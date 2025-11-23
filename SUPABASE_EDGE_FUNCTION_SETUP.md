@@ -199,7 +199,7 @@ supabase functions deploy send-email
 Después del deploy, verás algo como:
 
 ```
-Function URL: https://tzibtrmdzjjjbonkhyeh.supabase.co/functions/v1/send-email
+Function URL: api_key
 ```
 
 ## Paso 8: Actualizar el código del frontend
