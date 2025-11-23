@@ -29,6 +29,9 @@ export default function NewRequestModal({ isOpen, onClose, onSuccess }: NewReque
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
+    nombre: '',
+    apellido: '',
+    correo: '',
     origin: '',
     destination: '',
     weight_kg: '',
@@ -74,6 +77,43 @@ export default function NewRequestModal({ isOpen, onClose, onSuccess }: NewReque
               <span>{error}</span>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+              <input
+                required
+                type="text"
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                placeholder="Juan"
+                value={formData.nombre}
+                onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Apellido</label>
+              <input
+                required
+                type="text"
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                placeholder="Pérez"
+                value={formData.apellido}
+                onChange={e => setFormData({ ...formData, apellido: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
+            <input
+              required
+              type="email"
+              className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              placeholder="juan.perez@javerianacali.edu.co"
+              value={formData.correo}
+              onChange={e => setFormData({ ...formData, correo: e.target.value })}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>

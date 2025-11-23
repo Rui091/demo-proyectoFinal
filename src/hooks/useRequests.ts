@@ -7,6 +7,9 @@ import { useAudit } from './useAudit';
 export interface Request {
   id: string;
   user_id: string;
+  nombre: string;
+  apellido: string;
+  correo: string;
   origin: string;
   destination: string;
   weight_kg: number;
@@ -14,6 +17,7 @@ export interface Request {
   type: 'document' | 'small_package' | 'recording';
   status: 'pending' | 'assigned' | 'in_progress' | 'delivered' | 'cancelled';
   assigned_device_id?: string;
+  qr_code?: string;
   created_at: string;
 }
 
@@ -21,6 +25,9 @@ const MOCK_REQUESTS: Request[] = [
   {
     id: '1',
     user_id: 'user-1',
+    nombre: 'Juan',
+    apellido: 'Pérez',
+    correo: 'juan.perez@javerianacali.edu.co',
     origin: 'Admin Building',
     destination: 'Cafeteria',
     weight_kg: 1.5,
@@ -32,6 +39,9 @@ const MOCK_REQUESTS: Request[] = [
   {
     id: '2',
     user_id: 'user-1',
+    nombre: 'María',
+    apellido: 'González',
+    correo: 'maria.gonzalez@javerianacali.edu.co',
     origin: 'Library',
     destination: 'Sports Center',
     weight_kg: 0.2,
@@ -39,6 +49,7 @@ const MOCK_REQUESTS: Request[] = [
     type: 'document',
     status: 'in_progress',
     assigned_device_id: '1',
+    qr_code: 'QR-123456',
     created_at: new Date(Date.now() - 3600000).toISOString(),
   },
 ];
@@ -46,9 +57,10 @@ const MOCK_REQUESTS: Request[] = [
 export function useRequests() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
-  const { devices } = useDevices();
+  const { devices, updateDeviceStatus } = useDevices();
   const { showToast } = useToast();
   const { logAction } = useAudit();
+  const [qrModalData, setQrModalData] = useState<{ qrCode: string; request: Request } | null>(null);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -73,14 +85,8 @@ export function useRequests() {
     }
   };
 
-  const createRequest = async (requestData: Omit<Request, 'id' | 'status' | 'created_at' | 'user_id'>) => {
+  const createRequest = async (requestData: Omit<Request, 'id' | 'status' | 'created_at' | 'user_id' | 'qr_code'>) => {
     // RF6: Validation Logic
-    // Check if any available device can handle this weight
-    // Or if a specific device was requested (not in this simple form yet), check that.
-    // Here we just check if there exists ANY device with capacity >= weight.
-    // If not, we might warn, but maybe we still allow creation (pending).
-    // However, RF6 says "Generate alert if request exceeds limits".
-    
     const capableDevices = devices.filter(d => d.capacity_kg >= requestData.weight_kg);
     if (capableDevices.length === 0) {
       showToast('No devices available with sufficient capacity.', 'error');
@@ -94,25 +100,31 @@ export function useRequests() {
           id: Math.random().toString(36).substr(2, 9),
           user_id: 'current-user',
           status: 'pending',
+          qr_code: `QR-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           created_at: new Date().toISOString(),
         };
         setRequests([newRequest, ...requests]);
         showToast('Request created successfully (Mock)', 'success');
         
         // Log audit
-        await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination}`);
+        await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination} by ${requestData.nombre} ${requestData.apellido}`);
+        
+        showToast('Request created successfully', 'success');
         
         return { error: null };
       }
 
       const { data: { user } } = await supabase.auth.getUser();
       
+      const qrCode = `QR-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      
       const { data, error } = await supabase
         .from('requests')
         .insert([{ 
           ...requestData, 
           user_id: user?.id,
-          status: 'pending' 
+          status: 'pending',
+          qr_code: qrCode,
         }])
         .select()
         .single();
@@ -122,7 +134,9 @@ export function useRequests() {
       showToast('Request created successfully', 'success');
       
       // Log audit
-      await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination}`);
+      await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination} by ${requestData.nombre} ${requestData.apellido}`);
+      
+      showToast('Request created successfully', 'success');
       
       return { error: null };
     } catch (err: any) {
@@ -133,30 +147,80 @@ export function useRequests() {
 
   const updateStatus = async (id: string, status: Request['status']) => {
     try {
+      const request = requests.find(r => r.id === id);
+      if (!request) return { error: { message: 'Request not found' } };
+
+      let assignedDeviceId = request.assigned_device_id;
+      
+      // Auto-assign device when status changes to 'assigned'
+      if (status === 'assigned' && !assignedDeviceId) {
+        // Find available device with sufficient capacity
+        const availableDevice = devices.find(
+          d => d.status === 'available' && d.capacity_kg >= request.weight_kg
+        );
+        
+        if (!availableDevice) {
+          showToast('No available devices with sufficient capacity', 'error');
+          return { error: { message: 'No available devices' } };
+        }
+        
+        assignedDeviceId = availableDevice.id;
+        
+        // Update device status to busy
+        await updateDeviceStatus(availableDevice.id, 'busy');
+        showToast(`Device ${availableDevice.model} assigned and marked as busy`, 'success');
+      }
+      
+      // Free device when status changes to 'delivered'
+      if (status === 'delivered' && assignedDeviceId) {
+        await updateDeviceStatus(assignedDeviceId, 'available');
+        showToast('Device freed and marked as available', 'info');
+      }
+      
       if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('your-project')) {
-        setRequests(requests.map(r => r.id === id ? { ...r, status } : r));
+        setRequests(requests.map(r => 
+          r.id === id ? { ...r, status, assigned_device_id: assignedDeviceId } : r
+        ));
         showToast(`Request status updated to ${status}`, 'success');
         
         // Log audit
-        await logAction('UPDATE', 'requests', `Status changed to ${status}`);
+        await logAction('UPDATE', 'requests', `Status changed to ${status}${assignedDeviceId ? ` - Device assigned: ${assignedDeviceId}` : ''}`);
         
-        // Simulate Email Notification
-        if (status === 'delivered' || status === 'assigned') {
-             setTimeout(() => showToast(`Email notification sent to user about ${status} status`, 'info'), 1000);
+        // Show QR modal when assigned
+        if (status === 'assigned' && request.qr_code) {
+          setQrModalData({ qrCode: request.qr_code, request });
         }
+        
+        showToast(`Request status updated to ${status}`, 'success');
+        
         return { error: null };
+      }
+
+      const updateData: any = { status };
+      if (assignedDeviceId) {
+        updateData.assigned_device_id = assignedDeviceId;
       }
 
       const { error } = await supabase
         .from('requests')
-        .update({ status })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
-      setRequests(requests.map(r => r.id === id ? { ...r, status } : r));
+      
+      setRequests(requests.map(r => 
+        r.id === id ? { ...r, status, assigned_device_id: assignedDeviceId } : r
+      ));
       
       // Log audit
-      await logAction('UPDATE', 'requests', `Status changed to ${status}`);
+      await logAction('UPDATE', 'requests', `Status changed to ${status}${assignedDeviceId ? ` - Device assigned: ${assignedDeviceId}` : ''}`);
+      
+      // Show QR modal when assigned
+      if (status === 'assigned' && request.qr_code) {
+        setQrModalData({ qrCode: request.qr_code, request });
+      }
+      
+      showToast(`Request status updated to ${status}`, 'success');
       
       return { error: null };
     } catch (err: any) {
@@ -168,5 +232,13 @@ export function useRequests() {
     fetchRequests();
   }, []);
 
-  return { requests, loading, createRequest, updateStatus, refreshRequests: fetchRequests };
+  return { 
+    requests, 
+    loading, 
+    createRequest, 
+    updateStatus, 
+    refreshRequests: fetchRequests,
+    qrModalData,
+    setQrModalData,
+  };
 }

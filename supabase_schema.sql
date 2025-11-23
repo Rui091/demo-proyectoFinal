@@ -18,30 +18,6 @@ create table if not exists public.devices (
   battery_autonomy text not null,
   serial_number text unique not null,
   status text check (status in ('available', 'busy', 'maintenance')) default 'available',
-  location_lat float,
-  location_lng float,
-  address text,
-  created_at timestamptz default now()
-);
-
--- Create requests table
-create table if not exists public.requests (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references public.profiles(id) not null,
-  origin text not null,
-  destination text not null,
-  weight_kg float not null,
-  size_vol text not null, -- e.g., "10x10x10"
-  type text not null, -- e.g., "document", "small_package"
-  status text check (status in ('pending', 'assigned', 'in_progress', 'delivered', 'cancelled')) default 'pending',
-  assigned_device_id uuid references public.devices(id),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- Create audit_logs table
-create table if not exists public.audit_logs (
-  id uuid default uuid_generate_v4() primary key,
   action text not null, -- e.g., "CREATE", "UPDATE", "DELETE"
   table_name text not null,
   record_id uuid,

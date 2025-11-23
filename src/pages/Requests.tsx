@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Plus, Search, Filter, XCircle } from 'lucide-react';
 import { useRequests, type Request } from '../hooks/useRequests';
 import NewRequestModal from '../components/NewRequestModal';
+import QRModal from '../components/QRModal';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function Requests() {
-  const { requests, loading, refreshRequests, updateStatus } = useRequests();
+  const { requests, loading, refreshRequests, updateStatus, qrModalData, setQrModalData } = useRequests();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -207,6 +208,20 @@ export default function Requests() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={refreshRequests}
       />
+
+      {qrModalData && (
+        <QRModal
+          isOpen={true}
+          onClose={() => setQrModalData(null)}
+          qrCode={qrModalData.qrCode}
+          requestInfo={{
+            nombre: qrModalData.request.nombre,
+            apellido: qrModalData.request.apellido,
+            origin: qrModalData.request.origin,
+            destination: qrModalData.request.destination,
+          }}
+        />
+      )}
     </div>
   );
 }

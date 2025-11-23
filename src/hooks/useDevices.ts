@@ -58,7 +58,6 @@ const MOCK_DEVICES: Device[] = [
 export function useDevices() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
   const { logAction } = useAudit();
 
@@ -83,7 +82,6 @@ export function useDevices() {
       console.error('Error fetching devices:', err);
       // Fallback to mock if Supabase fails (e.g. table doesn't exist yet)
       setDevices(MOCK_DEVICES);
-      // setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -126,9 +124,29 @@ export function useDevices() {
     }
   };
 
+  const updateDeviceStatus = async (deviceId: string, status: 'available' | 'busy' | 'maintenance') => {
+    try {
+      if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('your-project')) {
+        setDevices(devices.map(d => d.id === deviceId ? { ...d, status } : d));
+        return { error: null };
+      }
+
+      const { error } = await supabase
+        .from('devices')
+        .update({ status })
+        .eq('id', deviceId);
+
+      if (error) throw error;
+      setDevices(devices.map(d => d.id === deviceId ? { ...d, status } : d));
+      return { error: null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  };
+
   useEffect(() => {
     fetchDevices();
   }, []);
 
-  return { devices, loading, error, addDevice, refreshDevices: fetchDevices };
+  return { devices, loading, addDevice, refreshDevices: fetchDevices, updateDeviceStatus };
 }
