@@ -1,4 +1,3 @@
-import React from 'react';
 import { Battery, MapPin, Weight } from 'lucide-react';
 import type { Device } from '../hooks/useDevices';
 

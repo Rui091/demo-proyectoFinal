@@ -1,4 +1,3 @@
-import React from 'react';
 import { Truck, Package, Activity, AlertCircle } from 'lucide-react';
 import { useDevices } from '../hooks/useDevices';
 import { useRequests } from '../hooks/useRequests';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Filter, XCircle } from 'lucide-react';
 import { useRequests, type Request } from '../hooks/useRequests';
 import NewRequestModal from '../components/NewRequestModal';

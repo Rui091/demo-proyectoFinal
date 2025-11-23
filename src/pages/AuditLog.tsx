@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Filter, Clock, User, Database } from 'lucide-react';
 import { useAudit } from '../hooks/useAudit';
 

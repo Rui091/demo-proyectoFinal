@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Filter } from 'lucide-react';
 import { useDevices } from '../hooks/useDevices';
 import DeviceCard from '../components/DeviceCard';
