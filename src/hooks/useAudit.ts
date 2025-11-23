@@ -5,7 +5,8 @@ export interface AuditLogEntry {
   id: string;
   action: string;
   table_name: string;
-  performed_by: string; // User email or ID
+  performed_by: string; // User ID
+  user_full_name?: string; // User full name from profiles
   details: string;
   timestamp: string;
 }
@@ -15,7 +16,8 @@ const MOCK_LOGS: AuditLogEntry[] = [
     id: '1',
     action: 'CREATE',
     table_name: 'requests',
-    performed_by: 'admin@university.edu',
+    performed_by: 'user-id-1',
+    user_full_name: 'Admin User',
     details: 'Created request #123456',
     timestamp: new Date().toISOString(),
   },
@@ -23,7 +25,8 @@ const MOCK_LOGS: AuditLogEntry[] = [
     id: '2',
     action: 'UPDATE',
     table_name: 'devices',
-    performed_by: 'admin@university.edu',
+    performed_by: 'user-id-1',
+    user_full_name: 'Admin User',
     details: 'Updated status of DJI-M300-001 to busy',
     timestamp: new Date(Date.now() - 1800000).toISOString(),
   },
@@ -31,7 +34,8 @@ const MOCK_LOGS: AuditLogEntry[] = [
     id: '3',
     action: 'LOGIN',
     table_name: 'auth',
-    performed_by: 'admin@university.edu',
+    performed_by: 'user-id-1',
+    user_full_name: 'Admin User',
     details: 'User logged in with 2FA',
     timestamp: new Date(Date.now() - 3600000).toISOString(),
   },
@@ -50,11 +54,23 @@ export function useAudit() {
       } else {
         const { data, error } = await supabase
           .from('audit_logs')
-          .select('*')
+          .select(`
+            *,
+            profiles:performed_by (
+              full_name
+            )
+          `)
           .order('timestamp', { ascending: false });
 
         if (error) throw error;
-        setLogs(data || []);
+        
+        // Transform data to include user_full_name
+        const transformedLogs = (data || []).map((log: any) => ({
+          ...log,
+          user_full_name: log.profiles?.full_name || 'Unknown User',
+        }));
+        
+        setLogs(transformedLogs);
       }
     } catch (err) {
       console.error('Error fetching audit logs:', err);
@@ -72,6 +88,7 @@ export function useAudit() {
           action,
           table_name: table,
           performed_by: 'current-user',
+          user_full_name: 'Current User',
           details,
           timestamp: new Date().toISOString(),
         };

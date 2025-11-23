@@ -1,17 +1,44 @@
 import { useState } from 'react';
-import { Search, Filter, Clock, User, Database } from 'lucide-react';
+import { Search, Calendar, Clock, User, Database } from 'lucide-react';
 import { useAudit } from '../hooks/useAudit';
 
 export default function AuditLog() {
   const { logs, loading } = useAudit();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const filteredLogs = logs.filter(log => {
-    const matchesFilter = filter === 'all' || log.action === filter;
+    const logDate = new Date(log.timestamp);
+    const now = new Date();
+    
+    let matchesDate = true;
+    if (dateFilter === 'today') {
+      matchesDate = logDate.toDateString() === now.toDateString();
+    } else if (dateFilter === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      matchesDate = logDate >= weekAgo;
+    } else if (dateFilter === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      matchesDate = logDate >= monthAgo;
+    } else if (dateFilter === 'custom') {
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        matchesDate = matchesDate && logDate >= start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && logDate <= end;
+      }
+    }
+    
     const matchesSearch = log.details.toLowerCase().includes(search.toLowerCase()) || 
-                          log.performed_by.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
+                          (log.user_full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+                          log.action.toLowerCase().includes(search.toLowerCase());
+    return matchesDate && matchesSearch;
   });
 
   return (
@@ -21,32 +48,57 @@ export default function AuditLog() {
         <p className="text-slate-500 mt-1">System-wide activity monitoring and traceability</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-8 flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search logs..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-4">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by user, action, or details..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Calendar className="w-5 h-5 text-slate-400" />
+            <select
+              className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-transparent"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last 30 Days</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-5 h-5 text-slate-400" />
-          <select
-            className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-transparent"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All Actions</option>
-            <option value="CREATE">Create</option>
-            <option value="UPDATE">Update</option>
-            <option value="DELETE">Delete</option>
-            <option value="LOGIN">Login</option>
-          </select>
-        </div>
+
+        {dateFilter === 'custom' && (
+          <div className="flex flex-col sm:flex-row gap-4 items-center pt-4 border-t border-slate-200">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="text-sm font-medium text-slate-700 whitespace-nowrap">From:</label>
+              <input
+                type="date"
+                className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="text-sm font-medium text-slate-700 whitespace-nowrap">To:</label>
+              <input
+                type="date"
+                className="px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -98,7 +150,7 @@ export default function AuditLog() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-slate-600">
                         <User className="w-4 h-4" />
-                        <span className="truncate max-w-[150px]">{log.performed_by}</span>
+                        <span className="truncate max-w-[150px]">{log.user_full_name || 'Unknown User'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-600">

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useDevices } from './useDevices';
 import { useToast } from '../context/ToastContext';
 import { useAudit } from './useAudit';
+import { sendRequestCreatedEmail, sendRequestStatusEmail } from '../lib/email';
 
 export interface Request {
   id: string;
@@ -109,6 +110,16 @@ export function useRequests() {
         // Log audit
         await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination} by ${requestData.nombre} ${requestData.apellido}`);
         
+        // Send email notification
+        await sendRequestCreatedEmail({
+          to: requestData.correo,
+          nombre: requestData.nombre,
+          apellido: requestData.apellido,
+          qrCode: newRequest.qr_code,
+          origin: requestData.origin,
+          destination: requestData.destination,
+        });
+        
         showToast('Request created successfully', 'success');
         
         return { error: null };
@@ -135,6 +146,16 @@ export function useRequests() {
       
       // Log audit
       await logAction('CREATE', 'requests', `Request from ${requestData.origin} to ${requestData.destination} by ${requestData.nombre} ${requestData.apellido}`);
+      
+      // Send email notification
+      await sendRequestCreatedEmail({
+        to: requestData.correo,
+        nombre: requestData.nombre,
+        apellido: requestData.apellido,
+        qrCode: qrCode,
+        origin: requestData.origin,
+        destination: requestData.destination,
+      });
       
       showToast('Request created successfully', 'success');
       
@@ -191,6 +212,17 @@ export function useRequests() {
           setQrModalData({ qrCode: request.qr_code, request });
         }
         
+        // Send email notification for status update
+        await sendRequestStatusEmail({
+          to: request.correo,
+          nombre: request.nombre,
+          apellido: request.apellido,
+          status: status,
+          qrCode: request.qr_code,
+          origin: request.origin,
+          destination: request.destination,
+        });
+        
         showToast(`Request status updated to ${status}`, 'success');
         
         return { error: null };
@@ -219,6 +251,17 @@ export function useRequests() {
       if (status === 'assigned' && request.qr_code) {
         setQrModalData({ qrCode: request.qr_code, request });
       }
+      
+      // Send email notification for status update
+      await sendRequestStatusEmail({
+        to: request.correo,
+        nombre: request.nombre,
+        apellido: request.apellido,
+        status: status,
+        qrCode: request.qr_code,
+        origin: request.origin,
+        destination: request.destination,
+      });
       
       showToast(`Request status updated to ${status}`, 'success');
       
